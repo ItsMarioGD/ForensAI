@@ -1,0 +1,105 @@
+{
+  "name": "forensia",
+  "version": "1.0.0",
+  "description": "ForensIA - Reconstrucción Forense de Accidentes",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node dev.js",
+    "dev:electron": "npx electron .",
+    "build": "npm run build:frontend && npm run build:electron",
+    "build:frontend": "node build-frontend.js",
+    "build:electron": "electron-builder",
+    "build:dir": "electron-builder --dir",
+    "start": "electron .",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:portable": "npm run build && electron-builder --win portable",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "forensics",
+    "accident",
+    "reconstruction",
+    "3d",
+    "ai"
+  ],
+  "author": "ForensIA Team",
+  "license": "MIT",
+  "dependencies": {
+    "electron-is-dev": "^2.0.0",
+    "electron-log": "^5.1.0",
+    "electron-updater": "^6.1.7",
+    "express": "^4.18.2",
+    "python-shell": "^5.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "vite": "^5.0.10"
+  },
+  "build": {
+    "appId": "com.forensia.app",
+    "productName": "ForensIA",
+    "copyright": "Copyright © 2024 ForensIA Team",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "electron/resources"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "api/**/*",
+      "utils/**/*",
+      "requirements.txt"
+    ],
+    "extraResources": [
+      {
+        "from": "api",
+        "to": "api",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "utils",
+        "to": "utils",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "requirements.txt",
+        "to": "requirements.txt"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "electron/resources/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ForensIA",
+      "installerIcon": "electron/resources/icon.ico",
+      "uninstallerIcon": "electron/resources/icon.ico",
+      "installerHeaderIcon": "electron/resources/icon.ico",
+      "license": "electron/resources/LICENSE.txt",
+      "perMachine": false,
+      "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "asar": true,
+    "compression": "maximum"
+  }
+}

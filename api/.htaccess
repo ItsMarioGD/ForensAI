@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# No reescribir archivos existentes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Enviar todo lo demás al router de la API
+RewriteRule ^ index.php [L]

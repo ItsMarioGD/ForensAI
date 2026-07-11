@@ -219,11 +219,15 @@ if limpiar:
     st.rerun()
 
 
+# Importar el nuevo modelo de vehículos
+from utils.vehicles import Vehicle, Scene
+
 def build_animation_figure(animacion: list) -> go.Figure:
     """
     Construye una figura Plotly con animación de frames de los vehículos
     representados como flechas (ángulos respetan v1_angulo / v2_angulo).
     """
+    # Convertir a DataFrame manteniendo compatibilidad con el API actual
     df = pd.DataFrame(animacion)
 
     # Invertimos el eje Y para que el norte (ángulos) sea coherente con

@@ -12,18 +12,56 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 
-  <!-- Three.js r160 (CDN) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Three.js r128 (local, sin dependencia de internet) -->
+  <script src="vendor/three.min.js"></script>
 
-  <!-- React 18 -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- React 18 (local) -->
+  <script crossorigin src="vendor/react.production.min.js"></script>
+  <script crossorigin src="vendor/react-dom.production.min.js"></script>
 
-  <!-- Babel (JSX transpilation in browser) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Babel (JSX transpilation in browser, local) -->
+  <script src="vendor/babel.min.js"></script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Mostrar errores en pantalla (en vez de quedar en blanco) -->
+  <script>
+    // Avisos benignos que el navegador emite como "error" pero no rompen nada
+    var IGNORE_MSGS = [
+      'ResizeObserver loop completed with undelivered notifications',
+      'ResizeObserver loop limit exceeded'
+    ];
+    function isIgnorable(msg) {
+      if (!msg) return false;
+      for (var i = 0; i < IGNORE_MSGS.length; i++) {
+        if (msg.indexOf(IGNORE_MSGS[i]) !== -1) return true;
+      }
+      return false;
+    }
+    window.addEventListener('error', function (e) {
+      if (isIgnorable(e.message || (e.error && e.error.message))) return;
+      var box = document.getElementById('errbox');
+      if (!box) {
+        box = document.createElement('pre');
+        box.id = 'errbox';
+        box.style.cssText = 'position:fixed;left:0;top:0;right:0;z-index:9999;margin:0;padding:12px;background:#3b0d0d;color:#ffb4b4;font:13px monospace;white-space:pre-wrap;max-height:50%;overflow:auto;';
+        document.body.appendChild(box);
+      }
+      box.textContent += '\n[ERROR] ' + (e.message || e.error) + (e.filename ? '  (' + e.filename + ':' + e.lineno + ')' : '');
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      if (isIgnorable(e.reason && e.reason.message ? e.reason.message : String(e.reason))) return;
+      var box = document.getElementById('errbox');
+      if (!box) {
+        box = document.createElement('pre');
+        box.id = 'errbox';
+        box.style.cssText = 'position:fixed;left:0;top:0;right:0;z-index:9999;margin:0;padding:12px;background:#3b0d0d;color:#ffb4b4;font:13px monospace;white-space:pre-wrap;max-height:50%;overflow:auto;';
+        document.body.appendChild(box);
+      }
+      box.textContent += '\n[PROMISE] ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+    });
+  </script>
 </head>
 <body>
   <div id="root"></div>
@@ -76,6 +114,6 @@
   </script>
 
   <!-- Main App (React + JSX via Babel) -->
-  <script type="text/babel" src="app.js"></script>
+  <script type="text/babel" data-presets="react,env" src="app.js"></script>
 </body>
 </html>

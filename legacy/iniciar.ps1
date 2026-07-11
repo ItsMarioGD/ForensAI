@@ -78,20 +78,20 @@ try {
 
 # --- Abrir navegador ---
 Write-Host ""
-Write-Host "Abriendo navegador en http://localhost:8000 ..." -ForegroundColor Cyan
+Write-Host "Abriendo navegador en http://localhost:8001 ..." -ForegroundColor Cyan
 Start-Sleep -Seconds 1
-Start-Process "http://localhost:8000"
+Start-Process "http://localhost:8001"
 
 # --- Iniciar servidor ---
 Write-Host ""
 Write-Host "  ============================================" -ForegroundColor Green
-Write-Host "    Servidor activo: http://localhost:8000" -ForegroundColor Green
+Write-Host "    Servidor activo: http://localhost:8001" -ForegroundColor Green
 Write-Host "    Presiona CTRL+C para detener" -ForegroundColor Green
 Write-Host "  ============================================" -ForegroundColor Green
 Write-Host ""
 
 try {
-    & $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+    & $PYTHON -m uvicorn api.main:app --host 127.0.0.1 --port 8001
 } catch {
     Write-Host ""
     Write-Host "[ERROR] El servidor fallo: $_" -ForegroundColor Red

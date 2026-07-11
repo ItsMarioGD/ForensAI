@@ -1,0 +1,31 @@
+ForensIA - Reconstrucción Forense de Accidentes
+Copyright (C) 2024 ForensIA Team
+
+Este software se proporciona "tal cual", sin garantía de ningún tipo, expresa o
+implícita, incluyendo pero no limitado a las garantías de comerciabilidad,
+idoneidad para un propósito particular y no infracción. En ningún caso los
+autores o titulares de derechos de autor serán responsables por cualquier
+reclamo, daños u otra responsabilidad, ya sea en una acción de contrato,
+agravio o de otro modo, que surja de, fuera de o en conexión con el software
+o el uso u otros tratos en el software.
+
+REQUISITOS DEL SISTEMA:
+- Windows 10/11 (64-bit)
+- Python 3.10+ (incluido en el instalador)
+- Ollama (se descarga automáticamente si no está presente)
+- 4 GB RAM mínimo (8 GB recomendado)
+- GPU con soporte WebGL 2.0
+- 2 GB espacio en disco
+
+DEPENDENCIAS INCLUIDAS:
+- Python 3.12 (embebido)
+- FastAPI, Uvicorn, Pydantic
+- Three.js r128, React 18, Babel Standalone
+
+PRIVACIDAD:
+- Todo el procesamiento ocurre LOCALMENTE en su máquina
+- No se envían datos a servidores externos
+- Los modelos de IA (Ollama) se ejecutan localmente
+- El historial de simulaciones se guarda localmente en su perfil de usuario
+
+Para más información, visite: https://github.com/forensia/forensia

@@ -37,53 +37,48 @@ RECOMMENDED_MODELS = [
 # ---------------------------------------------------------------------------
 # System Prompt: Núcleo de Inferencia Cinemática y Reconstrucción Forense
 # ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """Eres el Núcleo de Inferencia Cinemática y Reconstrucción Forense (NIC-RF).
-Tu función es procesar relatos de accidentes viales y transformarlos en un
-gemelo digital paramétrico estructurado en JSON.
+SYSTEM_PROMPT = """ROL Y OBJETIVO:
+Eres el motor de procesamiento lógico de "ForensIA", un simulador forense 3D hiperrealista. Tu función es analizar el "Relato del Siniestro" del usuario y traducirlo en parámetros y variables exactas para el motor de renderizado y físicas, evitando siempre los valores por defecto.
 
-Debes calcular un plano (X, Y) donde el punto de impacto inicial sea (0,0).
-Deduce vectores, velocidades aproximadas, trayectorias antes y después del
-impacto basándote en las leyes de la física de Newton y la conservación del
-movimiento.
+REGLAS ESTRUCTURALES OBLIGATORIAS:
 
-REGLAS DE ORO:
-1. El impacto ocurre SIEMPRE en (0,0) en el frame del segundo crítico.
-2. Antes del impacto, los vehículos se aproximan desde sus posiciones
-   pre-impacto (valores coherentes con su vector de aproximación).
-3. Después del impacto, las posiciones reflejan la dispersión de energía
-   y la fricción hasta el reposo final.
-4. El campo "angulo" representa la orientación del vehículo en grados
-   (0 = norte, 90 = este, 180 = sur, 270 = oeste).
-5. Mínimo 3 frames en la animación: pre-impacto, impacto, reposo.
-6. Si el relato es ambiguo, infiere el peor escenario plausible y
-   menciónalo en el dictamen técnico.
+INCLUIDE EXACTAMENTE ESTOS CAMPOS en el JSON de salida:
 
-IMPORTANTE: Responde ÚNICAMENTE con un objeto JSON válido, sin texto
-adicional, sin bloques de código markdown, sin explicaciones fuera del JSON.
+1. infraestructura: (string) - uno de: "interseccion_cruciforme", "recta", "curva", "rotonda"
+2. dictamen_tecnico: (string) - Explicación forense sintetizada de cómo ocurrió el hecho
+3. v1_color: (string) - "rojo" (siempre)
+4. v2_color: (string) - "azul" (siempre)
+5. v1_tipo: (string) - "sedan" (siempre)
+6. v2_tipo: (string) - "suv" (siempre)
 
-El JSON debe tener EXACTAMENTE esta estructura:
+PARÁMETROS DE RENDERIZADO DINÁMICOS (INCLUIDOS SIEMPRE):
+7. vehicle_model: "high_poly" (SIEMPRE)
+8. smooth_shading: true (SIEMPRE)
+9. environment: (string) "rural | urban | highway" (basado en relato)
+10. lighting_engine: (string) "daylight | night | overcast | sunset" (basado en hora)
 
-{
-  "infraestructura": "interseccion_cruciforme | recta | curva | rotonda",
-  "dictamen_tecnico": "Explicación forense sintetizada de cómo ocurrió el hecho.",
-  "animacion_actores": [
-    {
-      "segundo": 0.0,
-      "v1_x": -20.0, "v1_y": 0.0, "v1_angulo": 90,
-      "v2_x": 0.0, "v2_y": -20.0, "v2_angulo": 0
-    },
-    {
-      "segundo": 1.0,
-      "v1_x": 0.0, "v1_y": 0.0, "v1_angulo": 90,
-      "v2_x": 0.0, "v2_y": 0.0, "v2_angulo": 0
-    },
-    {
-      "segundo": 2.5,
-      "v1_x": 5.0, "v1_y": -2.0, "v1_angulo": 45,
-      "v2_x": 2.0, "v2_y": 8.0, "v2_angulo": 15
-    }
-  ]
-}"""
+PARÁMETROS DE FÍSICA DINÁMICA (INCLUIDOS SIEMPRE):
+11. physics_engine: "advanced" (SIEMPRE)
+12. part_detachment: true (SIEMPRE)
+13. tire_marks: true (SIEMPRE)
+
+14. animacion_actores: (array) - Mínimo 2 frames, cada uno con:
+   - segundo (float)
+   - v1_x (float), v1_y (float), v1_angulo (float)
+   - v2_x (float), v2_y (float), v2_angulo (float)
+
+REGLAS DE CONTENIDO:
+
+- RESPONDE ÚNICAMENTE con el objeto JSON (sin texto adicional)
+- NO uses markdown o bloques de código
+- NO envuelvas el JSON en contenedores
+- El JSON debe estar en la raíz de la respuesta
+- INCLUYE TODOS los 14 campos exactamente como se especifican arriba
+- NO omitas NINGÚN campo obligatorios
+
+FORMATO DE SALIDA:
+Al procesar el relato del usuario, siempre debes responder ÚNICAMENTE con un objeto JSON válido que incluya TODOS los 14 campos de arriba.
+El orden de los campos no importa, pero todos deben estar presentes."""
 
 
 # ---------------------------------------------------------------------------
@@ -152,20 +147,54 @@ def _extract_json_block(text: str) -> Optional[str]:
 
 
 def _validate_payload(payload: dict) -> bool:
-    """Verifica que el JSON de la IA tenga la estructura mínima esperada."""
+    """Verifica que el JSON de la IA tenga la estructura mínima esencial para el frontend."""
     if not isinstance(payload, dict):
         return False
-    if "infraestructura" not in payload:
+    
+    # Campos mínimamente necesarios para el frontend
+    required_top_level = {
+        "infraestructura", "dictamen_tecnico", "animacion_actores"
+    }
+    
+    # Validación mínima: la IA debe incluir al menos estos campos
+    if not required_top_level.issubset(payload.keys()):
         return False
-    if "dictamen_tecnico" not in payload:
+    
+    # Campos adicionales permitidos:
+    # Campo explícitos del reporte forense
+    if "v1_color" in payload and not isinstance(payload["v1_color"], str):
         return False
-    if "animacion_actores" not in payload:
+    if "v2_color" in payload and not isinstance(payload["v2_color"], str):
         return False
+    if "v1_tipo" in payload and not isinstance(payload["v1_tipo"], str):
+        return False
+    if "v2_tipo" in payload and not isinstance(payload["v2_tipo"], str):
+        return False
+    
+    # Campos de realismo dinámico (opcionales para compatibilidad)
+    if "vehicle_model" in payload and not isinstance(payload["vehicle_model"], str):
+        return False
+    if "smooth_shading" in payload and not isinstance(payload["smooth_shading"], bool):
+        return False
+    if "environment" in payload and not isinstance(payload["environment"], str):
+        return False
+    if "lighting_engine" in payload and not isinstance(payload["lighting_engine"], str):
+        return False
+    if "physics_engine" in payload and not isinstance(payload["physics_engine"], str):
+        return False
+    if "part_detachment" in payload and not isinstance(payload["part_detachment"], bool):
+        return False
+    if "tire_marks" in payload and not isinstance(payload["tire_marks"], bool):
+        return False
+    
+    # Validar estructura de animacion_actores
     if not isinstance(payload["animacion_actores"], list) or len(payload["animacion_actores"]) < 2:
         return False
 
     required_keys = {"segundo", "v1_x", "v1_y", "v1_angulo",
                      "v2_x", "v2_y", "v2_angulo"}
+    
+    # Verificar que cada frame tenga los campos esenciales
     for frame in payload["animacion_actores"]:
         if not isinstance(frame, dict):
             return False
@@ -178,6 +207,7 @@ def _validate_payload(payload: dict) -> bool:
             float(frame["v2_x"]); float(frame["v2_y"]); float(frame["v2_angulo"])
         except (TypeError, ValueError):
             return False
+    
     return True
 
 

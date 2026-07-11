@@ -1,0 +1,5 @@
+RewriteEngine On
+
+# Enviar toda petición que NO sea un archivo real al front-controller.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.php [L]

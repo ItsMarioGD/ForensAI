@@ -1,0 +1,25 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#020508"/>
+      <stop offset="100%" style="stop-color:#0a1828"/>
+    </linearGradient>
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="50%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#38bdf8"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="32" fill="url(#bgGrad)"/>
+  <circle cx="128" cy="128" r="90" fill="none" stroke="url(#neonGrad)" stroke-width="3" filter="url(#glow)"/>
+  <path d="M128 58 L128 110 M100 82 L128 110 L156 82" fill="none" stroke="url(#neonGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  <circle cx="128" cy="198" r="12" fill="url(#neonGrad)" filter="url(#glow)"/>
+  <text x="128" y="235" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="bold" fill="#38bdf8" filter="url(#glow)">FORENSIA</text>
+</svg>
