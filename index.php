@@ -60,27 +60,37 @@ if ($scriptDir !== '/' && strpos($rel, $scriptDir) === 0) {
 $rel = ltrim($rel, '/');
 $rel = $rel === '' ? 'index.html' : $rel;
 
-$target = __DIR__ . '/frontend/' . $rel;
-if (!is_file($target)) {
-    $target = __DIR__ . '/vendor/' . $rel;
-}
-if (!is_file($target)) {
-    $target = __DIR__ . '/' . $rel;
-}
-if (is_file($target)) {
-    $ext = pathinfo($target, PATHINFO_EXTENSION);
-    $mime = [
-        'html' => 'text/html; charset=utf-8',
-        'js'   => 'application/javascript; charset=utf-8',
-        'css'  => 'text/css; charset=utf-8',
-        'svg'  => 'image/svg+xml',
-        'png'  => 'image/png',
-        'jpg'  => 'image/jpeg',
-        'json' => 'application/json',
+// Solo se sirven archivos estáticos de /frontend y /vendor con extensiones
+// conocidas: nunca código PHP (config.php guarda la API key) ni rutas con "..".
+$mime = [
+    'html' => 'text/html; charset=utf-8',
+    'js'   => 'application/javascript; charset=utf-8',
+    'css'  => 'text/css; charset=utf-8',
+    'svg'  => 'image/svg+xml',
+    'png'  => 'image/png',
+    'jpg'  => 'image/jpeg',
+    'json' => 'application/json',
+];
+$ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+if (isset($mime[$ext]) && strpos($rel, '..') === false) {
+    $candidates = [
+        [__DIR__ . '/frontend', $rel],
+        [__DIR__ . '/vendor', $rel],
     ];
-    header('Content-Type: ' . ($mime[$ext] ?? 'application/octet-stream'));
-    readfile($target);
-    exit;
+    if (strpos($rel, 'vendor/') === 0) {
+        $candidates[] = [__DIR__ . '/vendor', substr($rel, strlen('vendor/'))];
+    }
+    foreach ($candidates as [$base, $file]) {
+        $target = realpath($base . '/' . $file);
+        $root = realpath($base);
+        if ($target !== false && $root !== false && strpos($target, $root . DIRECTORY_SEPARATOR) === 0 && is_file($target)) {
+            header('Content-Type: ' . $mime[$ext]);
+            // En Vercel la CDN guarda los archivos estáticos (la caché es por despliegue).
+            header('Cache-Control: public, max-age=300, s-maxage=86400');
+            readfile($target);
+            exit;
+        }
+    }
 }
 
 // SPA fallback

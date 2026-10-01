@@ -106,6 +106,22 @@ terminal y ejecuta `ollama serve`.
 
 ---
 
+### Despliegue en Vercel (opcional)
+
+Vercel no interpreta PHP por sí solo. `vercel.json` usa el runtime comunitario
+[`vercel-php`](https://github.com/juicyfx/vercel-php) y enruta todas las peticiones a
+`api/vercel.php`, que delega en `index.php` (API + frontend, igual que en XAMPP).
+Cada rama/PR obtiene su URL de vista previa automáticamente al conectar el repositorio.
+
+- Define `POLLINATIONS_API_KEY` en *Project → Settings → Environment Variables*.
+- Las funciones tienen un máximo de 60 s (`maxDuration`); los relatos muy largos pueden
+  acercarse a ese límite en modo automático.
+- Las vistas previas pueden estar protegidas con *Vercel Authentication*: para mostrarlas a
+  alguien sin cuenta, usa *Share* en la barra de Vercel o desactiva la protección en
+  *Settings → Deployment Protection*.
+
+---
+
 ## ⚙️ Configuración
 
 Edita `config.php` (o define variables de entorno en tu hosting):
