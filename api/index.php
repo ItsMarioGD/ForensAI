@@ -12,6 +12,12 @@
  * (ver .htaccess en esta misma carpeta).
  */
 
+// En Vercel (vercel-php) el runtime trae display_errors=1: un aviso de PHP
+// rompería el JSON de las respuestas, así que solo se registra en el log.
+if (getenv('VERCEL')) {
+    ini_set('display_errors', '0');
+}
+
 require_once __DIR__ . '/../config.php';
 
 // ── CORS (permite que el frontend en el mismo host o externo consuma la API) ──
@@ -30,6 +36,11 @@ $uri = rtrim($uri, '/');
 $endpoint = '';
 if (preg_match('#/api/([^/]+)$#', $uri, $m)) {
     $endpoint = $m[1];
+}
+// En Vercel la reescritura /api/:path* → /api/index.php puede llegar como
+// /api/index.php?path=status: el endpoint viene entonces en ?path=.
+if (($endpoint === '' || $endpoint === 'index.php') && isset($_GET['path'])) {
+    $endpoint = trim((string) $_GET['path'], '/');
 }
 
 switch ($endpoint) {

@@ -968,6 +968,36 @@ textarea {
   letter-spacing: 0.03em;
 }
 
+.viewer-hint {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  right: 12px;
+  z-index: 5;
+  font-size: 0.68rem;
+  color: rgba(190, 210, 235, 0.75);
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+  letter-spacing: 0.02em;
+}
+
+.vehicle-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+
+.veh-chip {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(2, 6, 12, 0.6);
+}
+.veh-chip.v1 { color: #ff6b6b; border-color: rgba(255, 80, 80, 0.4); }
+.veh-chip.v2 { color: #6b9bff; border-color: rgba(80, 130, 255, 0.4); }
+
 /* ═══════════════════════════════
    CAMERA MODE BUTTONS (in viewer)
 ═══════════════════════════════ */
@@ -1000,6 +1030,107 @@ textarea {
   background: rgba(56,189,248,0.12);
   box-shadow: 0 0 12px rgba(56,189,248,0.2), inset 0 0 8px rgba(56,189,248,0.05);
 }
+
+.map-view-toggle {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  z-index: 5;
+}
+
+/* ═══════════════════════════════
+   MODO DE MAPA (sidebar)
+═══════════════════════════════ */
+.map-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.map-mode-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(2, 6, 12, 0.6);
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--dur-mid) var(--ease);
+}
+
+.map-mode-option:hover:not(:disabled) {
+  border-color: var(--border-hot);
+  background: rgba(56,189,248,0.06);
+}
+
+.map-mode-option.active {
+  border-color: var(--neon);
+  background: rgba(56,189,248,0.1);
+  box-shadow: 0 0 12px rgba(56,189,248,0.15), inset 0 0 8px rgba(56,189,248,0.05);
+}
+
+.map-mode-option:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.map-mode-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.map-mode-option.active .map-mode-title { color: var(--neon-bright); }
+
+.map-mode-desc {
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+
+/* ═══════════════════════════════
+   ESCENARIO RECONSTRUIDO
+═══════════════════════════════ */
+.scenario-desc {
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-1);
+  margin: 0 0 0.75rem;
+}
+
+.scenario-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+}
+
+.scenario-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1rem;
+}
+
+.scenario-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.scenario-list li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.scenario-list li:last-child { border-bottom: none; }
+.scenario-list strong { color: var(--text-1); font-weight: 600; }
 
 /* ═══════════════════════════════
    PLAYBACK CONTROLS
@@ -1384,6 +1515,8 @@ code {
   .card { padding: 1.1rem; border-radius: var(--radius); }
   .data-grid { grid-template-columns: repeat(2, 1fr); }
   .playback-controls { gap: 0.5rem; padding: 0.6rem 0.75rem; }
+  .scenario-grid { grid-template-columns: 1fr; }
+  .map-view-toggle { top: auto; bottom: 34px; }
 }
 
 /* ═══════════════════════════════

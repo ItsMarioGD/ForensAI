@@ -23,8 +23,12 @@ if ($relato === '') {
 
 $model = isset($body['model']) && $body['model'] !== '' ? (string) $body['model'] : POLLINATIONS_MODEL;
 
+// "auto" (por defecto): la IA reconstruye el lugar desde el relato.
+// "plantilla": se usa uno de los 4 mapas modelados.
+$modoMapa = (isset($body['modo_mapa']) && $body['modo_mapa'] === 'plantilla') ? 'plantilla' : 'auto';
+
 try {
-    $payload = generateSimulationPollinations($relato, $model);
+    $payload = generateSimulationPollinations($relato, $model, POLLINATIONS_BASE_URL, POLLINATIONS_GENERATE_TIMEOUT, $modoMapa);
     http_response_code(200);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 } catch (RuntimeException $e) {
