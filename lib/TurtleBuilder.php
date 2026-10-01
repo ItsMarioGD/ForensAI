@@ -212,7 +212,10 @@ function buildSceneFromPayload(array $payload): Scene {
         $name = 'V' . ($i + 1);
         $vehicle = Vehicle::fromDict($frame, $name);
         $scene->addVehicle($vehicle);
+    }
 
+    // Todos los frames de la animación (antes solo se incluían los dos primeros).
+    foreach ($frames as $frame) {
         $scene->frames[] = [
             'timestamp' => $frame['segundo'] ?? 0.0,
             'v1_x' => $frame['v1_x'] ?? 0.0,
@@ -260,12 +263,16 @@ Requiere: Python 3.x estandar (turtle incluido)
 import turtle
 import time
 import math
+import json
+import base64
 
 
 # ──────────────────────────────────────────
 #  Datos de la simulacion (generados por IA)
 # ──────────────────────────────────────────
 INFRAESTRUCTURA = "__INFRAESTRUCTURA__"
+# Lugar reconstruido por la IA (modo "Mapa automático"); vacío en modo plantilla.
+ESCENARIO = json.loads(base64.b64decode("__ESCENARIO_B64__").decode("utf-8"))
 FRAMES = [
 __FRAMES__
 ]
@@ -312,9 +319,96 @@ def draw_road_line(t, x1, y1, x2, y2, color="#444444", width=1, dash=False):
         t.goto(x2, y2)
     t.penup()
 
+ZONE_COLORS = {
+    "agua": "#1d4766", "bosque": "#1f3d1a", "parque": "#24452a", "cesped": "#24452a", "isla": "#24452a",
+    "cultivo": "#3d3a1e", "plaza": "#3a3a3a", "estacionamiento": "#2a2a2a", "tierra": "#4a3a28", "arena": "#6b5d40",
+}
+SURFACE_COLORS = {"asfalto": "#1c1c1c", "concreto": "#3a3a3a", "adoquin": "#3d3128", "tierra": "#4a3a28", "grava": "#4a463e"}
+BUILDINGS = ("edificio", "casa", "tienda", "gasolinera")
+LINEAR = ("muro", "valla", "guardarrail", "barrera")
+
+def to_px(x, y):
+    return x * SCALE, -y * SCALE
+
+def draw_polyline(t, pts, color, width, closed=False):
+    t.penup()
+    t.color(color)
+    t.width(max(1, int(width)))
+    t.goto(*to_px(*pts[0]))
+    t.pendown()
+    for p in pts[1:]:
+        t.goto(*to_px(*p))
+    if closed:
+        t.goto(*to_px(*pts[0]))
+    t.penup()
+
+def fill_polygon(t, pts, color):
+    t.penup()
+    t.color(color)
+    t.goto(*to_px(*pts[0]))
+    t.begin_fill()
+    for p in pts[1:]:
+        t.goto(*to_px(*p))
+    t.end_fill()
+
+def rotated_rect(x, y, w, l, heading):
+    h = math.radians(heading)
+    fx, fy = math.sin(h), math.cos(h)
+    rx, ry = math.cos(h), -math.sin(h)
+    return [(x + rx * sa * w / 2 + fx * sl * l / 2, y + ry * sa * w / 2 + fy * sl * l / 2)
+            for sa, sl in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+
+def draw_element(t, e):
+    tipo, x, y, ang = e["tipo"], e["x"], e["y"], e.get("angulo", 0)
+    if tipo in BUILDINGS:
+        w = e.get("ancho", 12 if tipo == "edificio" else 8)
+        l = e.get("largo", 12 if tipo == "edificio" else 9)
+        fill_polygon(t, rotated_rect(x, y, w, l, ang), "#2c3e50" if tipo == "edificio" else "#5d4037")
+    elif tipo in LINEAR:
+        l = e.get("largo", 10)
+        h = math.radians(ang)
+        a = (x - math.sin(h) * l / 2, y - math.cos(h) * l / 2)
+        b = (x + math.sin(h) * l / 2, y + math.cos(h) * l / 2)
+        draw_polyline(t, [a, b], "#b0b0b0", 2)
+    else:
+        colors = {"arbol": "#2e7d32", "pino": "#1b5e20", "palmera": "#558b2f", "arbusto": "#33691e",
+                  "semaforo": "#f1c40f", "senal_pare": "#e74c3c", "senal_ceda": "#e74c3c",
+                  "senal_velocidad": "#ecf0f1", "poste_luz": "#f5e6a8", "vehiculo_estacionado": "#95a5a6",
+                  "cono": "#e67e22", "barril": "#e67e22", "charco": "#5dade2", "bache": "#111111"}
+        size = 10 if tipo in ("arbol", "pino", "palmera") else 6
+        t.penup()
+        t.goto(*to_px(x, y))
+        t.dot(size, colors.get(tipo, "#7f8c8d"))
+
+def draw_escenario(t):
+    t.speed(0)
+    for z in ESCENARIO.get("zonas", []):
+        fill_polygon(t, z["poligono"], ZONE_COLORS.get(z["tipo"], "#24452a"))
+    vias = ESCENARIO.get("vias", [])
+    for v in vias:
+        if v.get("acera"):
+            draw_polyline(t, v["puntos"], "#4a4a52", (v["ancho"] + 5) * SCALE, v.get("cerrada"))
+    for v in vias:
+        draw_polyline(t, v["puntos"], SURFACE_COLORS.get(v["superficie"], "#1c1c1c"), v["ancho"] * SCALE, v.get("cerrada"))
+    for v in vias:
+        if v.get("linea_central", "ninguna") != "ninguna" and v.get("sentido") == "doble":
+            draw_polyline(t, v["puntos"], "#ffff00", 1, v.get("cerrada"))
+    for e in ESCENARIO.get("elementos", []):
+        draw_element(t, e)
+    t.color("#9fe8ff")
+    for v in vias:
+        if v.get("nombre"):
+            p = v["puntos"][len(v["puntos"]) // 2]
+            t.penup()
+            t.goto(*to_px(*p))
+            t.write(v["nombre"], align="center", font=("Arial", 9, "normal"))
+
 def draw_infrastructure(t):
     t.speed(0)
     t.penup()
+    if ESCENARIO.get("vias"):
+        draw_escenario(t)
+        return
     road_color = "#1c1c1c"
     line_color = "#ffff00"
     edge_color = "#ffffff"
@@ -589,7 +683,12 @@ function buildTurtleScript(array $payload): string {
     $infraSafe = str_replace('"', '\\"', $infra);
     $dictamenSafe = str_replace('"', '\\"', $dictamen);
 
+    // El escenario viaja en base64 para no tener que escapar comillas ni saltos de línea.
+    $escenario = (isset($payload['escenario']) && is_array($payload['escenario'])) ? $payload['escenario'] : [];
+    $escenarioB64 = base64_encode(json_encode($escenario ?: new stdClass(), JSON_UNESCAPED_UNICODE) ?: '{}');
+
     $script = TURTLE_SCRIPT_TEMPLATE;
+    $script = str_replace('__ESCENARIO_B64__', $escenarioB64, $script);
     $script = str_replace('__INFRAESTRUCTURA__', $infraSafe, $script);
     $script = str_replace('__DICTAMEN__', $dictamenSafe, $script);
     $script = str_replace('__FRAMES__', $framesStr, $script);

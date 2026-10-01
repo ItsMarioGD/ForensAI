@@ -64,6 +64,7 @@ C:\xampp\htdocs\forensia\
 ├── config.php             ← config Ollama
 ├── lib\                   ← lógica de negocio
 │   ├── SystemPrompt.php
+│   ├── SceneNormalizer.php  ← limpia el escenario (mapa automático)
 │   ├── JsonValidator.php
 │   ├── OllamaClient.php
 │   └── TurtleBuilder.php
@@ -75,6 +76,7 @@ C:\xampp\htdocs\forensia\
 └── frontend\              ← UI (HTML/CSS/JS)
     ├── index.html
     ├── app.js
+    ├── map-generator.js   ← genera el mapa 3D del lugar descrito
     └── styles.css
 ```
 
@@ -151,9 +153,13 @@ curl -X POST http://localhost/forensia/api/simulate \
   -H "Content-Type: application/json" \
   -d '{
     "relato": "Vehículo 1 (sedán rojo) circulaba de sur a norte a 70 km/h y chocó con el Vehículo 2 que cruzó en rojo.",
-    "model": "llama3.1:8b"
+    "model": "llama3.1:8b",
+    "modo_mapa": "auto"
   }'
 ```
+
+`modo_mapa` es opcional: `"auto"` (por defecto, la respuesta incluye `escenario`) o
+`"plantilla"` (uno de los 4 mapas modelados).
 
 **Turtle (descarga .py):**
 ```bash
@@ -162,6 +168,60 @@ curl -X POST http://localhost/forensia/api/turtle-script \
   -d @simulacion.json -o forensia_simulacion.py
 python forensia_simulacion.py
 ```
+
+---
+
+## 🗺️ Mapa del siniestro: automático o plantilla
+
+En la barra lateral, la tarjeta **"Mapa del siniestro"** ofrece dos modos (la
+elección se recuerda en el navegador):
+
+| Modo | Qué hace |
+|---|---|
+| **🤖 Automático** (por defecto) | La IA lee el relato y **reconstruye el lugar**: vías (rectas, curvas, cruces, intersecciones en T, rotondas), número de carriles, superficie (asfalto, adoquín, tierra...), aceras y bermas, edificios, casas, árboles, postes, semáforos, señales, muros, guardarraíles, autos estacionados, zonas (parques, ríos, bosques...), iluminación (día, atardecer, noche...) y clima (lluvia, niebla, nieve). El navegador lo genera en 3D. |
+| **📐 Plantillas** | Usa uno de los 4 mapas modelados: intersección, recta, curva o rotonda (comportamiento anterior). |
+
+Con una simulación automática en pantalla, los botones **🗺️ Mapa IA / 📐 Plantilla**
+del visor permiten comparar la misma reconstrucción sobre el mapa generado o sobre la
+plantilla más parecida. La tarjeta **"Escenario reconstruido por la IA"** muestra cómo
+interpretó la IA el lugar.
+
+**Robustez:**
+- `lib/SceneNormalizer.php` traduce sinónimos (`"farola"` → `poste_luz`, `"pasto"` → `cesped`,
+  `"doble línea amarilla"` → `doble_amarilla`...), acota números y coordenadas, expande
+  filas de elementos y rotondas definidas por centro y radio.
+- Si la IA no describe las vías (o no cubren el recorrido de V1/V2 antes del impacto),
+  se **infieren a partir de las trayectorias** y se marcan como "inferidas".
+- Si el relato detalla poco el entorno, el generador lo completa según la zona
+  (edificios en zona urbana, casas en residencial, vegetación en rural/montaña,
+  guardarraíles en autopista), sin invadir la calzada ni las trayectorias.
+- Los cruces reciben automáticamente pasos de cebra (zonas urbanas) y líneas de PARE.
+
+El script Python (Turtle) descargable también dibuja el escenario reconstruido.
+
+### Campo `escenario` (modo automático)
+
+```json
+"escenario": {
+  "descripcion": "Cruce semaforizado en zona comercial, de noche",
+  "zona": "urbana", "terreno": "concreto", "iluminacion": "noche", "clima": "despejado",
+  "trafico_ambiente": "medio",
+  "vias": [
+    { "nombre": "Av. Libertador", "puntos": [[0,-110],[0,110]], "ancho": 14, "carriles": 4,
+      "sentido": "doble", "superficie": "asfalto", "linea_central": "doble_amarilla",
+      "acera": true, "berma": false },
+    { "nombre": "Rotonda", "centro": [0,40], "radio": 20, "ancho": 9 }
+  ],
+  "zonas": [ { "tipo": "parque", "poligono": [[14,14],[60,14],[60,55],[14,55]] } ],
+  "elementos": [
+    { "tipo": "semaforo", "x": 8.5, "y": -8, "estado": "rojo" },
+    { "tipo": "poste_luz", "linea": [[-9.5,-100],[-9.5,-15]], "cantidad": 4 }
+  ]
+}
+```
+
+Coordenadas en metros (+x = este, +y = norte), ángulos como rumbo (0 = norte, 90 = este),
+el impacto cerca de (0,0) y circulación por la derecha.
 
 ---
 
@@ -204,7 +264,7 @@ forensia/
 ├── index.php             ← front controller / router
 ├── .htaccess             ← reescritura + seguridad
 ├── config.php            ← constantes del sistema
-├── lib/                  ← núcleo (SystemPrompt, JsonValidator, OllamaClient, TurtleBuilder)
+├── lib/                  ← núcleo (SystemPrompt, SceneNormalizer, JsonValidator, OllamaClient, TurtleBuilder)
 ├── controllers/          ← endpoints REST delgados
 ├── frontend/             ← UI estática servida directamente
 └── legacy/               ← versión Python original (sólo referencia histórica)

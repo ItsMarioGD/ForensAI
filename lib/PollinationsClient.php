@@ -12,6 +12,7 @@
 
 require_once __DIR__ . '/SystemPrompt.php';
 require_once __DIR__ . '/JsonValidator.php';
+require_once __DIR__ . '/SceneNormalizer.php';
 
 /**
  * Request HTTP genérico a Pollinations con cURL.
@@ -85,10 +86,11 @@ function listPollinationsModels(): array {
 /**
  * Genera la simulación forense enviando el relato a Pollinations.
  *
- * @param string $relato Descripción del accidente.
- * @param string $model  Modelo de texto (ej. "openai").
- * @param string $url    Base URL de Pollinations.
- * @param int $timeout   Timeout en segundos.
+ * @param string $relato   Descripción del accidente.
+ * @param string $model    Modelo de texto (ej. "openai").
+ * @param string $url      Base URL de Pollinations.
+ * @param int $timeout     Timeout en segundos.
+ * @param string $modoMapa "auto" (la IA reconstruye el lugar) o "plantilla" (4 mapas modelados).
  * @return array Payload validado de la simulación.
  * @throws RuntimeException Si hay cualquier error.
  */
@@ -96,7 +98,8 @@ function generateSimulationPollinations(
     string $relato,
     string $model = POLLINATIONS_MODEL,
     string $url = POLLINATIONS_BASE_URL,
-    int $timeout = POLLINATIONS_GENERATE_TIMEOUT
+    int $timeout = POLLINATIONS_GENERATE_TIMEOUT,
+    string $modoMapa = 'auto'
 ): array {
     if (trim($relato) === '') {
         throw new RuntimeException('El relato del accidente está vacío.');
@@ -109,20 +112,23 @@ function generateSimulationPollinations(
         );
     }
 
+    $modoAuto = $modoMapa !== 'plantilla';
     $userPrompt = "Analiza el siguiente relato de accidente de tránsito y genera " .
                   "la simulación forense en JSON estricto, respetando EXACTAMENTE " .
-                  "la estructura indicada en las reglas.\n\n" .
-                  "RELATO:\n" . trim($relato);
+                  "la estructura indicada en las reglas." .
+                  ($modoAuto ? " Reconstruye el lugar del siniestro en el campo \"escenario\"." : "") .
+                  "\n\nRELATO:\n" . trim($relato);
 
     $payloadRequest = [
         'model' => $model,
         'messages' => [
-            ['role' => 'system', 'content' => SYSTEM_PROMPT],
+            ['role' => 'system', 'content' => buildSystemPrompt($modoMapa)],
             ['role' => 'user', 'content' => $userPrompt],
         ],
         'temperature' => 0.1,
         'top_p' => 0.9,
-        'max_tokens' => 2048,
+        // El escenario (vías, zonas, elementos) alarga bastante la respuesta.
+        'max_tokens' => $modoAuto ? 4096 : 2048,
     ];
 
     try {
@@ -198,5 +204,10 @@ function generateSimulationPollinations(
         );
     }
 
-    return coerceTypes($payload);
+    $payload = coerceTypes($payload);
+    $payload['modo_mapa'] = $modoAuto ? 'auto' : 'plantilla';
+    if ($modoAuto) {
+        $payload['escenario'] = normalizeEscenario($payload['escenario'] ?? null, $payload);
+    }
+    return $payload;
 }

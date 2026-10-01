@@ -66,6 +66,17 @@ function parseVehicleType(typeStr, defaultType) {
   return VEHICLE_TYPES.includes(t) ? t : defaultType;
 }
 
+// Traduce una infraestructura libre (modo mapa automático) a uno de los 4 mapas modelados.
+const TEMPLATE_MAPS = ['interseccion_cruciforme', 'recta', 'curva', 'rotonda'];
+function templateFromInfra(infra) {
+  const k = String(infra || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (TEMPLATE_MAPS.includes(k) || k === 'interseccion') return k;
+  if (/rotonda|glorieta|redondel|roundabout/.test(k)) return 'rotonda';
+  if (/curva|montana|serpenteante/.test(k)) return 'curva';
+  if (/interseccion|cruce|esquina|cruciforme|crucero/.test(k)) return 'interseccion_cruciforme';
+  return 'recta';
+}
+
 function getPhase(frames, tCurrent) {
   if (!frames || frames.length < 2) return 'pre';
   const tImpact = frames[Math.floor(frames.length / 2)].segundo;
@@ -273,6 +284,8 @@ class SceneManager {
     rimLight.position.set(0, 10, -80); this.scene.add(rimLight);
     this.impactLight = new THREE.PointLight(0xff6622, 0, 35, 2);
     this.impactLight.position.set(0, 3, 0); this.scene.add(this.impactLight);
+    // Referencias para ajustar la atmósfera (día/noche/clima) en el mapa automático.
+    this.lights = { ambient, hemi, moon: moonLight, fill: fillLight, rim: rimLight };
   }
 
   _buildGround() {
@@ -286,6 +299,7 @@ class SceneManager {
     const gridHelper = new THREE.GridHelper(400, 80, 0x0a1a30, 0x061020);
     gridHelper.position.y = -0.1; gridHelper.material.transparent = true;
     gridHelper.material.opacity = 0.6; this.scene.add(gridHelper);
+    this.gridHelper = gridHelper;
   }
 
   _buildAmbientDust() {
@@ -313,6 +327,9 @@ class SceneManager {
   buildRoad(infraestructura) {
     this.roadMeshes.forEach(m => this.scene.remove(m));
     this.roadMeshes = [];
+    this.clearMap();
+    if (window.ForensMap) ForensMap.applyAtmosphere(this, 'noche', 'despejado', { x: 0, y: 0 });
+    this.setFocus({ x: 0, y: 0, r: 50 });
 
     const aspCanvas = document.createElement('canvas');
     aspCanvas.width = 256; aspCanvas.height = 256;
@@ -625,6 +642,41 @@ class SceneManager {
         makeBuilding(15 + Math.random() * 20, 10 + Math.random() * 15, 15 + Math.random() * 20, x, z);
       }
     }
+  }
+
+  // ─────── MAPA AUTOMÁTICO (generado a partir del escenario descrito por la IA) ───────
+  clearMap() {
+    if (this.mapLayout) {
+      this.scene.remove(this.mapLayout.group);
+      ForensMap.disposeObject(this.mapLayout.group);
+      this.mapLayout = null;
+    }
+    this.treeCanopies = [];
+  }
+
+  buildProceduralMap(escenario, frames) {
+    this.roadMeshes.forEach(m => this.scene.remove(m));
+    this.roadMeshes = [];
+    this.clearMap();
+    const focus = ForensMap.computeFocus(frames);
+    ForensMap.applyAtmosphere(this, escenario.iluminacion, escenario.clima, focus);
+    this.mapLayout = ForensMap.build(this, escenario, frames, { colorOf: parseColor });
+    this.setFocus(Object.assign({}, focus, { radius: this.mapLayout.viewRadius, theta: this.mapLayout.viewTheta }));
+  }
+
+  buildAmbientTraffic() {
+    this.fillerVehicles.forEach(g => this.scene.remove(g));
+    this.fillerVehicles = [];
+    if (this.mapLayout) ForensMap.placeAmbientTraffic(this, this.mapLayout);
+  }
+
+  // Centra la cámara orbital en la zona del siniestro.
+  setFocus(focus) {
+    this.focus = focus;
+    this.controls.target.set(focus.x, 0, -focus.y);
+    if (this.controls.setDefaultView) this.controls.setDefaultView(focus.radius || 80, focus.theta !== undefined ? focus.theta : Math.PI / 4);
+    if (this.cameraMode === 'free') this.controls.reset();
+    else if (this.cameraMode === 'top') this.setCameraMode('top');
   }
 
   _makeVehicle(colorHex, emissiveHex, type) {
@@ -1577,7 +1629,10 @@ class SceneManager {
     this.cameraMode = mode;
     this.controls.enabled = (mode === 'free');
     if (mode === 'free') this.controls.reset();
-    else if (mode === 'top') { this.camera.position.set(0, 100, 0.01); this.camera.lookAt(0, 0, 0); }
+    else if (mode === 'top') {
+      const f = this.focus || { x: 0, y: 0, r: 50 };
+      this.camera.position.set(f.x, Math.max(100, f.r * 1.8), -f.y + 0.01); this.camera.lookAt(f.x, 0, -f.y);
+    }
     else if (mode === 'v1' && frame) { this.camera.position.set(frame.v1_x, 20, -frame.v1_y + 25); this.camera.lookAt(frame.v1_x, 0, -frame.v1_y); }
     else if (mode === 'v2' && frame) { this.camera.position.set(frame.v2_x, 20, -frame.v2_y + 25); this.camera.lookAt(frame.v2_x, 0, -frame.v2_y); }
   }
@@ -1618,6 +1673,8 @@ class SceneManager {
         this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity * 0.3;
       }
 
+      if (this.weather) this.weather.tick();
+
       // Animate clouds drifting
       if (this.clouds) {
         this.cloudTime += 0.005;
@@ -1652,7 +1709,7 @@ class SceneManager {
 // ──────────────────────────────────────────────────────────────
 //  3D Viewer Component
 // ──────────────────────────────────────────────────────────────
-const Viewer3D = ({ simulationData, tCurrent, phase, cameraMode, onCameraModeChange }) => {
+const Viewer3D = ({ simulationData, tCurrent, phase, cameraMode, onCameraModeChange, mapView, onMapViewChange }) => {
   const canvasRef = React.useRef(null);
   const sceneRef = React.useRef(null);
   const wrapperRef = React.useRef(null);
@@ -1672,7 +1729,18 @@ const Viewer3D = ({ simulationData, tCurrent, phase, cameraMode, onCameraModeCha
   React.useEffect(() => {
     if (!sceneRef.current || !simulationData) return;
     const sm = sceneRef.current;
-    sm.buildRoad(simulationData.infraestructura);
+    let autoMap = !!(mapView === 'auto' && simulationData.escenario && window.ForensMap);
+    const template = templateFromInfra(simulationData.infraestructura);
+    if (autoMap) {
+      try {
+        sm.buildProceduralMap(simulationData.escenario, simulationData.animacion_actores);
+      } catch (e) {
+        // Datos inesperados de la IA: se usa la plantilla más parecida antes que dejar el visor vacío.
+        console.error('No se pudo generar el mapa automático; se usa la plantilla ' + template, e);
+        autoMap = false;
+      }
+    }
+    if (!autoMap) sm.buildRoad(template);
     // V1: rojo — sedán deportivo (Civic). V2: negro — camioneta (Hilux/SUV).
     // Forzado independientemente del JSON de la IA para consistencia con el relato.
     sm.buildVehicles({
@@ -1682,11 +1750,12 @@ const Viewer3D = ({ simulationData, tCurrent, phase, cameraMode, onCameraModeCha
       color: 0x1A1A1A, type: 'camioneta',
       emissive: 0x222222,
     });
-    sm.buildFillerTraffic(simulationData.infraestructura);
+    if (autoMap) sm.buildAmbientTraffic();
+    else sm.buildFillerTraffic(template);
     sm.buildImpactMarker();
     sm.buildSkidMarks(simulationData.animacion_actores);
     sm.buildTrajectories(simulationData.animacion_actores);
-  }, [simulationData]);
+  }, [simulationData, mapView]);
 
   React.useEffect(() => {
     if (!sceneRef.current || !simulationData) return;
@@ -1713,6 +1782,12 @@ const Viewer3D = ({ simulationData, tCurrent, phase, cameraMode, onCameraModeCha
         <div className="viewer-overlay">
           <div className="viewer-placeholder-icon">🚗</div>
           <p className="viewer-placeholder-text">Describe el siniestro y genera la simulación para ver la reconstrucción 3D aquí.</p>
+        </div>
+      )}
+      {hasData && simulationData.escenario && (
+        <div className="map-view-toggle">
+          <button className={`cam-btn${mapView === 'auto' ? ' active' : ''}`} onClick={() => onMapViewChange('auto')} title="Mapa reconstruido por la IA a partir del relato">🗺️ Mapa IA</button>
+          <button className={`cam-btn${mapView === 'plantilla' ? ' active' : ''}`} onClick={() => onMapViewChange('plantilla')} title={'Plantilla modelada: ' + templateFromInfra(simulationData.infraestructura)}>📐 Plantilla</button>
         </div>
       )}
       {hasData && (
@@ -1800,6 +1875,73 @@ const RawDataExpander = ({ data }) => {
 };
 
 // ──────────────────────────────────────────────────────────────
+//  Escenario reconstruido por la IA (modo mapa automático)
+// ──────────────────────────────────────────────────────────────
+const ESC_LABELS = {
+  zona: { urbana: 'Urbana', residencial: 'Residencial', suburbana: 'Suburbana', rural: 'Rural', autopista: 'Autopista', montana: 'Montaña', industrial: 'Industrial', estacionamiento: 'Estacionamiento' },
+  iluminacion: { dia: '☀️ Día', amanecer: '🌅 Amanecer', atardecer: '🌇 Atardecer', noche: '🌙 Noche', nublado: '☁️ Nublado' },
+  clima: { despejado: 'Despejado', lluvia: '🌧️ Lluvia', niebla: '🌫️ Niebla', nieve: '❄️ Nieve' },
+  trafico_ambiente: { ninguno: 'Sin tráfico', bajo: 'Tráfico bajo', medio: 'Tráfico medio', alto: 'Tráfico alto' },
+  elemento: {
+    arbol: 'Árbol', poste_luz: 'Poste de luz', poste_electrico: 'Poste eléctrico', semaforo: 'Semáforo',
+    senal_pare: 'Señal de PARE', senal_ceda: 'Señal de CEDA', senal_velocidad: 'Límite de velocidad', senal: 'Señal',
+    vehiculo_estacionado: 'Vehículo estacionado', paso_peatonal: 'Paso peatonal', parada_bus: 'Parada de bus',
+    guardarrail: 'Guardarraíl', poste_km: 'Poste kilométrico', mancha_aceite: 'Mancha de aceite', generico: 'Otro',
+  },
+};
+
+const ScenarioPanel = ({ escenario }) => {
+  if (!escenario) return null;
+  const vias = escenario.vias || [];
+  const elementos = escenario.elementos || [];
+  const conteo = {};
+  elementos.forEach(e => { conteo[e.tipo] = (conteo[e.tipo] || 0) + 1; });
+  const resumen = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const label = (k, v) => (ESC_LABELS[k] && ESC_LABELS[k][v]) || v;
+  return (
+    <div className="card fade-in-up">
+      <div className="card-title">Escenario reconstruido por la IA</div>
+      {escenario.descripcion && <p className="scenario-desc">{escenario.descripcion}</p>}
+      <div className="scenario-badges">
+        {['zona', 'iluminacion', 'clima', 'trafico_ambiente'].map(k => escenario[k] && (
+          <span key={k} className="badge badge-neon">{label(k, escenario[k])}</span>
+        ))}
+      </div>
+      <div className="scenario-grid">
+        <div>
+          <div className="section-label">Vías ({vias.length})</div>
+          <ul className="scenario-list">
+            {vias.map((v, i) => (
+              <li key={i}>
+                <strong>{v.nombre || (v.forma === 'circular' ? 'Rotonda' : 'Vía ' + (i + 1))}</strong>
+                <span> · {v.ancho} m · {v.carriles} carril{v.carriles !== 1 ? 'es' : ''} · {v.sentido === 'unico' ? 'un sentido' : 'doble sentido'} · {v.superficie}</span>
+                {v.auto && <span className="badge badge-red" style={{ marginLeft: '0.4rem' }}>inferida</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="section-label">Elementos ({elementos.length})</div>
+          <ul className="scenario-list">
+            {resumen.length === 0 && <li>La IA no detalló elementos; el entorno se completa según la zona.</li>}
+            {resumen.map(([tipo, n]) => (
+              <li key={tipo}>{ESC_LABELS.elemento[tipo] || tipo.charAt(0).toUpperCase() + tipo.slice(1).replace(/_/g, ' ')} × {n}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      {escenario.origen_vias !== 'ia' && (
+        <div className="alert alert-info" style={{ marginTop: '0.75rem' }}>
+          {escenario.origen_vias === 'trayectorias'
+            ? 'El relato no describía las vías: se trazaron a partir de las trayectorias de los vehículos.'
+            : 'Algunas vías se completaron a partir de las trayectorias de los vehículos.'}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ──────────────────────────────────────────────────────────────
 //  Turtle Script Generator (pure JS)
 // ──────────────────────────────────────────────────────────────
 function buildTurtleScript(simulationData) {
@@ -1874,6 +2016,12 @@ const App = () => {
   const animRef = React.useRef(null);
   const lastTimeRef = React.useRef(null);
   const [cameraMode, setCameraMode] = React.useState('free');
+  // "auto": la IA reconstruye el lugar; "plantilla": 4 mapas modelados.
+  const [mapMode, setMapMode] = React.useState(() => {
+    try { return localStorage.getItem('forensia.mapMode') === 'plantilla' ? 'plantilla' : 'auto'; } catch { return 'auto'; }
+  });
+  const [mapView, setMapView] = React.useState('auto');
+  React.useEffect(() => { try { localStorage.setItem('forensia.mapMode', mapMode); } catch {} }, [mapMode]);
 
   // ── Check Pollinations status ──
   const checkStatus = React.useCallback(async () => {
@@ -1933,11 +2081,13 @@ const App = () => {
     setLoadingMsg('Procesando relato con ' + selectedModel + '...');
 
     try {
-      setLoadingMsg('Esperando respuesta de ' + selectedModel + ' (10-30 seg)...');
+      setLoadingMsg(mapMode === 'auto'
+        ? 'La IA está reconstruyendo el lugar y la dinámica del siniestro (20-60 seg)...'
+        : 'Esperando respuesta de ' + selectedModel + ' (10-30 seg)...');
       const r = await fetch(API_BASE + '/api/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ relato: relato.trim(), model: selectedModel, base_url: POLLINATIONS_URL })
+        body: JSON.stringify({ relato: relato.trim(), model: selectedModel, base_url: POLLINATIONS_URL, modo_mapa: mapMode })
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({ error: 'HTTP ' + r.status }));
@@ -1950,6 +2100,7 @@ const App = () => {
         segundo: parseFloat(f.segundo), v1_x: parseFloat(f.v1_x), v1_y: parseFloat(f.v1_y),
         v1_angulo: parseFloat(f.v1_angulo), v2_x: parseFloat(f.v2_x), v2_y: parseFloat(f.v2_y), v2_angulo: parseFloat(f.v2_angulo),
       }));
+      setMapView(result.escenario ? 'auto' : 'plantilla');
       setSimulationData(result); setTCurrent(0); setLoadingMsg('');
     } catch (e) { setError('Error al generar: ' + e.message); }
     finally { setLoading(false); }
@@ -2015,6 +2166,23 @@ const App = () => {
           </div>
         </details>
 
+        {/* Modo de mapa */}
+        <div className="card" style={{ padding: '0.9rem 1rem' }}>
+          <div className="card-title">Mapa del siniestro</div>
+          <div className="map-mode" role="radiogroup" aria-label="Modo de mapa">
+            {[
+              { id: 'auto', icon: '🤖', title: 'Automático', desc: 'La IA reconstruye el lugar desde el relato: vías, cruces, edificios, señales, iluminación y clima.' },
+              { id: 'plantilla', icon: '📐', title: 'Plantillas', desc: 'Usa uno de los 4 mapas modelados: intersección, recta, curva o rotonda.' },
+            ].map(o => (
+              <button key={o.id} type="button" role="radio" aria-checked={mapMode === o.id}
+                className={`map-mode-option${mapMode === o.id ? ' active' : ''}`} onClick={() => setMapMode(o.id)} disabled={loading}>
+                <span className="map-mode-title">{o.icon} {o.title}</span>
+                <span className="map-mode-desc">{o.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Relato Input */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '1rem' }}>
           <div className="card-title">Relato del siniestro</div>
@@ -2048,7 +2216,8 @@ const App = () => {
             {simulationData && <span className="badge badge-neon" style={{ marginLeft: '0.75rem' }}>{simulationData.infraestructura}</span>}
           </div>
 
-          <Viewer3D simulationData={simulationData} tCurrent={tCurrent} phase={phase} cameraMode={cameraMode} onCameraModeChange={setCameraMode} />
+          <Viewer3D simulationData={simulationData} tCurrent={tCurrent} phase={phase} cameraMode={cameraMode} onCameraModeChange={setCameraMode}
+            mapView={mapView} onMapViewChange={setMapView} />
 
           {simulationData && (
             <div style={{ marginTop: '0.75rem' }}>
@@ -2069,6 +2238,8 @@ const App = () => {
             </div>
           </div>
         )}
+
+        {simulationData && simulationData.escenario && <ScenarioPanel escenario={simulationData.escenario} />}
 
         {simulationData && (
           <div className="card fade-in-up">

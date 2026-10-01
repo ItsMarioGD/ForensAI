@@ -15,6 +15,9 @@
   <!-- Three.js r128 (local, sin dependencia de internet) -->
   <script src="vendor/three.min.js"></script>
 
+  <!-- Generador procedural de mapas (modo "Mapa automático") -->
+  <script src="map-generator.js"></script>
+
   <!-- React 18 (local) -->
   <script crossorigin src="vendor/react.production.min.js"></script>
   <script crossorigin src="vendor/react-dom.production.min.js"></script>
@@ -76,7 +79,8 @@
 
       let isMouseDown = false;
       let prevMouse = { x: 0, y: 0 };
-      let spherical = { theta: Math.PI / 4, phi: Math.PI / 3, radius: 80 };
+      let defaultRadius = 80, defaultTheta = Math.PI / 4;
+      let spherical = { theta: defaultTheta, phi: Math.PI / 3, radius: defaultRadius };
 
       const updateCamera = () => {
         const x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
@@ -99,16 +103,18 @@
       domElement.addEventListener('mouseup', () => { isMouseDown = false; });
       domElement.addEventListener('wheel', (e) => {
         if (!this.enabled) return;
-        spherical.radius = Math.max(20, Math.min(200, spherical.radius + e.deltaY * 0.1));
+        spherical.radius = Math.max(20, Math.min(260, spherical.radius + e.deltaY * 0.1));
         updateCamera();
       });
       domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
       this.update = updateCamera;
       this.reset = () => {
-        spherical = { theta: Math.PI / 4, phi: Math.PI / 3, radius: 80 };
+        spherical = { theta: defaultTheta, phi: Math.PI / 3, radius: defaultRadius };
         updateCamera();
       };
+      // Vista inicial según el tamaño de la escena y los edificios que podrían taparla.
+      this.setDefaultView = (r, theta) => { defaultRadius = r; defaultTheta = theta; };
       updateCamera();
     };
   </script>
