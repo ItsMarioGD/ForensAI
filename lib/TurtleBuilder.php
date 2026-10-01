@@ -196,6 +196,17 @@ class Scene {
 //  Construcción de la escena a partir del payload
 // ─────────────────────────────────────────────────────────────────────────
 
+function turtleImpactTime(array $payload): float {
+    $frames = $payload['animacion_actores'] ?? [];
+    if (is_numeric($payload['t_impacto'] ?? null)) {
+        return (float) $payload['t_impacto'];
+    }
+    if (empty($frames)) {
+        return 0.0;
+    }
+    return (float) ($frames[intdiv(count($frames), 2)]['segundo'] ?? 0.0);
+}
+
 function buildSceneFromPayload(array $payload): Scene {
     $scene = new Scene(
         $payload['infraestructura'] ?? 'interseccion_cruciforme',
@@ -207,12 +218,14 @@ function buildSceneFromPayload(array $payload): Scene {
 
     $frames = $payload['animacion_actores'] ?? [];
 
-    // Solo V1 y V2 (los dos primeros frames representan los vehículos)
-    foreach (array_slice($frames, 0, 2) as $i => $frame) {
-        $name = 'V' . ($i + 1);
-        $vehicle = Vehicle::fromDict($frame, $name);
-        $scene->addVehicle($vehicle);
+    // Vehículos V1 y V2 tomados del primer frame
+    if (!empty($frames)) {
+        foreach (['V1', 'V2'] as $name) {
+            $scene->addVehicle(Vehicle::fromDict($frames[0], $name));
+        }
+    }
 
+    foreach ($frames as $frame) {
         $scene->frames[] = [
             'timestamp' => $frame['segundo'] ?? 0.0,
             'v1_x' => $frame['v1_x'] ?? 0.0,
@@ -224,12 +237,17 @@ function buildSceneFromPayload(array $payload): Scene {
         ];
     }
 
-    // Evento de impacto en el frame del segundo crítico (el del medio)
+    // Evento de impacto: el instante que declara la IA (t_impacto) o, si
+    // no viene, el frame del medio.
     if (!empty($frames)) {
-        $impactTime = $frames[intdiv(count($frames), 2)]['segundo'] ?? 0.0;
+        $impactTime = turtleImpactTime($payload);
+        $punto = $payload['punto_impacto'] ?? [];
         $scene->setImpactEvent(new ImpactEvent(
             $impactTime,
-            ['x' => 0.0, 'y' => 0.0],
+            [
+                'x' => is_numeric($punto['x'] ?? null) ? (float) $punto['x'] : 0.0,
+                'y' => is_numeric($punto['y'] ?? null) ? (float) $punto['y'] : 0.0,
+            ],
             $scene->vehicles
         ));
     }
@@ -269,6 +287,7 @@ INFRAESTRUCTURA = "__INFRAESTRUCTURA__"
 FRAMES = [
 __FRAMES__
 ]
+T_IMPACTO = __T_IMPACTO__
 
 # ──────────────────────────────────────────
 #  Configuracion de escena
@@ -539,7 +558,7 @@ def draw_trajectory(t, frames_data, key_x, key_y, color):
 
 
 def get_phase(t_val):
-    t_impact = FRAMES[len(FRAMES)//2]["t"] if len(FRAMES) > 1 else 0
+    t_impact = T_IMPACTO
     if t_val < t_impact - 0.1:
         return "PRE-IMPACTO"
     elif t_val <= t_impact + 0.1:
@@ -593,6 +612,7 @@ function buildTurtleScript(array $payload): string {
     $script = str_replace('__INFRAESTRUCTURA__', $infraSafe, $script);
     $script = str_replace('__DICTAMEN__', $dictamenSafe, $script);
     $script = str_replace('__FRAMES__', $framesStr, $script);
+    $script = str_replace('__T_IMPACTO__', (string) turtleImpactTime($payload), $script);
 
     return $script;
 }

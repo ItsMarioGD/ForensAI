@@ -200,7 +200,7 @@ function generateSimulation(
         'options' => [
             'temperature' => 0.1,     // Bajo para máxima consistencia JSON
             'top_p' => 0.9,
-            'num_predict' => 2048,
+            'num_predict' => 6000,
             'format' => 'json',       // Fuerza salida JSON en Ollama >= 0.5
         ],
     ];
