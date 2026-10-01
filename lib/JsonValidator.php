@@ -109,13 +109,29 @@ function validatePayload(array $payload): bool {
  */
 function coerceTypes(array $payload): array {
     $keys = ['segundo', 'v1_x', 'v1_y', 'v1_angulo', 'v2_x', 'v2_y', 'v2_angulo'];
+    $optionalKeys = ['v1_inclinacion', 'v2_inclinacion'];
     foreach ($payload['animacion_actores'] as &$frame) {
         foreach ($keys as $k) {
             if (is_numeric($frame[$k] ?? null)) {
                 $frame[$k] = (float) $frame[$k];
             }
         }
+        foreach ($optionalKeys as $k) {
+            $frame[$k] = is_numeric($frame[$k] ?? null) ? (float) $frame[$k] : 0.0;
+        }
     }
     unset($frame);
+
+    // Los modelos a veces devuelven los frames desordenados: el visor
+    // interpola por tiempo, así que se ordenan por "segundo".
+    usort($payload['animacion_actores'], function ($a, $b) {
+        return $a['segundo'] <=> $b['segundo'];
+    });
+
+    if (is_numeric($payload['t_impacto'] ?? null)) {
+        $payload['t_impacto'] = (float) $payload['t_impacto'];
+    } else {
+        unset($payload['t_impacto']);
+    }
     return $payload;
 }

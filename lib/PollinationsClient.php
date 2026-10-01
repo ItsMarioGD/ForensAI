@@ -109,9 +109,11 @@ function generateSimulationPollinations(
         );
     }
 
-    $userPrompt = "Analiza el siguiente relato de accidente de tránsito y genera " .
-                  "la simulación forense en JSON estricto, respetando EXACTAMENTE " .
-                  "la estructura indicada en las reglas.\n\n" .
+    $userPrompt = "Analiza el siguiente relato de accidente de tránsito (puede venir " .
+                  "como texto libre o como JSON con los datos del caso) y genera la " .
+                  "simulación forense en JSON estricto, respetando EXACTAMENTE el " .
+                  "sistema de coordenadas, la geometría de la vía, las dimensiones y " .
+                  "las reglas de contacto indicadas.\n\n" .
                   "RELATO:\n" . trim($relato);
 
     $payloadRequest = [
@@ -122,7 +124,7 @@ function generateSimulationPollinations(
         ],
         'temperature' => 0.1,
         'top_p' => 0.9,
-        'max_tokens' => 2048,
+        'max_tokens' => 6000,
     ];
 
     try {

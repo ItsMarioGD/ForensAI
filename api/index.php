@@ -31,6 +31,11 @@ $endpoint = '';
 if (preg_match('#/api/([^/]+)$#', $uri, $m)) {
     $endpoint = $m[1];
 }
+// En Vercel la reescritura /api/:path* → /api/index.php puede llegar como
+// /api/index.php?path=status: el endpoint viene entonces en ?path=.
+if (($endpoint === '' || $endpoint === 'index.php') && isset($_GET['path'])) {
+    $endpoint = trim((string) $_GET['path'], '/');
+}
 
 switch ($endpoint) {
     case 'status':
