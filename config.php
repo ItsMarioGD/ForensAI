@@ -7,7 +7,9 @@ define('POLLINATIONS_API_KEY', $pollinationsKeyEnv !== false && $pollinationsKey
 define('POLLINATIONS_BASE_URL', 'https://gen.pollinations.ai');
 define('POLLINATIONS_MODEL', 'openai');
 define('POLLINATIONS_CHECK_TIMEOUT', 6);
-define('POLLINATIONS_GENERATE_TIMEOUT', 180);
+// En Vercel la función se corta a los 60 s (maxDuration en vercel.json):
+// se responde antes con un error claro en lugar de un 504 genérico.
+define('POLLINATIONS_GENERATE_TIMEOUT', getenv('VERCEL') ? 55 : 180);
 
 define('POLLINATIONS_RECOMMENDED_MODELS', [
     'openai',

@@ -484,12 +484,23 @@ function escSobreVias(float $x, float $y, array $vias, float $margen): bool {
  * crea una vía a lo largo de ese recorrido (desplazada para que el vehículo
  * quede en su carril derecho) y la prolonga antes y después del impacto.
  */
-function escInferirViasDeTrayectorias(array $vias, array $frames, string $zona): array {
+function escInferirViasDeTrayectorias(array $vias, array $frames, string $zona, ?float $tImpacto = null): array {
     $n = count($frames);
     if ($n < 2) {
         return $vias;
     }
+    // Frame del impacto: el más cercano a t_impacto o, si no viene, el central.
     $impacto = intdiv($n, 2);
+    if ($tImpacto !== null) {
+        $mejor = INF;
+        foreach ($frames as $i => $f) {
+            $d = abs((float) ($f['segundo'] ?? 0) - $tImpacto);
+            if ($d < $mejor) {
+                $mejor = $d;
+                $impacto = $i;
+            }
+        }
+    }
     $ancho = $zona === 'autopista' ? 14.0 : (in_array($zona, ['rural', 'montana'], true) ? 7.0 : 9.0);
 
     foreach (['v1' => 'V1', 'v2' => 'V2'] as $k => $etiqueta) {
@@ -786,7 +797,8 @@ function normalizeEscenario($crudo, array $payload): array {
     }
 
     $antes = count($out['vias']);
-    $out['vias'] = escInferirViasDeTrayectorias($out['vias'], $payload['animacion_actores'] ?? [], $zona);
+    $tImpacto = is_numeric($payload['t_impacto'] ?? null) ? (float) $payload['t_impacto'] : null;
+    $out['vias'] = escInferirViasDeTrayectorias($out['vias'], $payload['animacion_actores'] ?? [], $zona, $tImpacto);
     if (count($out['vias']) > $antes) {
         $out['origen_vias'] = $antes === 0 ? 'trayectorias' : 'ia+trayectorias';
     }

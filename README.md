@@ -106,19 +106,23 @@ terminal y ejecuta `ollama serve`.
 
 ---
 
-### Despliegue en Vercel (opcional)
+## ▲ Despliegue en Vercel
 
-Vercel no interpreta PHP por sí solo. `vercel.json` usa el runtime comunitario
-[`vercel-php`](https://github.com/juicyfx/vercel-php) y enruta todas las peticiones a
-`api/vercel.php`, que delega en `index.php` (API + frontend, igual que en XAMPP).
-Cada rama/PR obtiene su URL de vista previa automáticamente al conectar el repositorio.
+El repositorio incluye `vercel.json`, así que basta con importarlo en Vercel
+(o hacer push a una rama: cada push genera una URL de *preview*).
 
-- Define `POLLINATIONS_API_KEY` en *Project → Settings → Environment Variables*.
-- Las funciones tienen un máximo de 60 s (`maxDuration`); los relatos muy largos pueden
-  acercarse a ese límite en modo automático.
-- Las vistas previas pueden estar protegidas con *Vercel Authentication*: para mostrarlas a
-  alguien sin cuenta, usa *Share* en la barra de Vercel o desactiva la protección en
-  *Settings → Deployment Protection*.
+- La carpeta `frontend/` se publica como sitio estático (los `.php` no quedan
+  expuestos como archivos).
+- `api/index.php` corre como función PHP con el runtime comunitario
+  [`vercel-php`](https://github.com/juicyfx/vercel-php) y atiende
+  `/api/status`, `/api/models`, `/api/simulate` y `/api/turtle-script`.
+- Límite de 60 s por petición (`maxDuration`); en Vercel la llamada a la IA
+  se corta a los 55 s.
+- Define `POLLINATIONS_API_KEY` en *Settings → Environment Variables* del
+  proyecto para no depender de la clave de `config.php`.
+- Las vistas previas pueden estar protegidas con *Vercel Authentication*: para
+  mostrarlas a alguien sin cuenta, usa *Share* en la barra de Vercel o desactiva la
+  protección en *Settings → Deployment Protection*.
 
 ---
 

@@ -1,13 +1,16 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "",
+  "outputDirectory": "frontend",
   "functions": {
-    "api/vercel.php": {
+    "api/index.php": {
       "runtime": "vercel-php@0.7.4",
       "maxDuration": 60,
-      "excludeFiles": "{legacy/**,src/**,node_modules/**,vercel.json,.vercelignore}"
+      "excludeFiles": "{legacy/**,frontend/**,vendor/**,src/**,node_modules/**,.vercel/**,vercel.json,.vercelignore}"
     }
   },
-  "routes": [
-    { "src": "/(.*)", "dest": "/api/vercel.php" }
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index.php" }
   ]
 }

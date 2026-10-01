@@ -601,7 +601,6 @@
         }
       }
       this.junctions = [];
-      this.tall = [];   // { x, y, r, h } para elegir un ángulo de cámara sin obstrucciones
     }
 
     // ── Helpers de materiales y montaje ──
@@ -701,33 +700,7 @@
       return {
         group: this.group, roads: this.roads, focus: this.focus, builder: this,
         trafico: this.esc.trafico_ambiente,
-        viewRadius: clamp(this.focus.r * 1.6, 80, 190),
-        viewTheta: this.bestViewTheta(clamp(this.focus.r * 1.6, 80, 190)),
       };
-    }
-
-    /**
-     * Azimut de la cámara orbital (misma convención que SimpleOrbitControls)
-     * que menos edificios/árboles interpone entre la cámara y el foco.
-     */
-    bestViewTheta(radius) {
-      const phi = Math.PI / 3;
-      const horiz = radius * Math.sin(phi), height = radius * Math.cos(phi);
-      const fx = this.focus.x, fy = this.focus.y;
-      let best = null;
-      for (let k = 0; k < 8; k++) {
-        const theta = Math.PI / 4 + k * Math.PI / 4;
-        const cx = fx + horiz * Math.sin(theta), cy = fy - horiz * Math.cos(theta);
-        let pen = 0;
-        for (let f = 0.04; f <= 1.001; f += 0.04) {
-          const px = fx + (cx - fx) * f, py = fy + (cy - fy) * f, ph = height * f;
-          for (const b of this.tall) {
-            if (b.h > ph && Math.hypot(px - b.x, py - b.y) < b.r) pen += b.h - ph;
-          }
-        }
-        if (!best || pen < best.pen - 0.5) best = { theta, pen };
-      }
-      return best.theta;
     }
 
     buildTerrain() {
@@ -1066,10 +1039,8 @@
         // Ya colocado (pasos peatonales, topes...).
       } else {
         this.place(obj, x, y, heading);
-        if (obj.userData.height > 4) {
-          const box = new THREE.Box3().setFromObject(obj);
-          this.tall.push({ x, y, r: Math.max(box.max.x - box.min.x, box.max.z - box.min.z) / 2, h: obj.userData.height });
-        }
+        // El visor vuelve transparentes los objetos altos que tapan la vista.
+        if (obj.userData.height > 4) obj.userData.occluder = true;
       }
       const r = FOOTPRINT[tipo] !== undefined ? FOOTPRINT[tipo] : Math.max(num(el.ancho, 1), num(el.largo, 1)) / 2;
       if (tipo === 'edificio' || tipo === 'casa' || tipo === 'tienda') {

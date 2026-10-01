@@ -113,10 +113,12 @@ function generateSimulationPollinations(
     }
 
     $modoAuto = $modoMapa !== 'plantilla';
-    $userPrompt = "Analiza el siguiente relato de accidente de tránsito y genera " .
-                  "la simulación forense en JSON estricto, respetando EXACTAMENTE " .
-                  "la estructura indicada en las reglas." .
-                  ($modoAuto ? " Reconstruye el lugar del siniestro en el campo \"escenario\"." : "") .
+    $userPrompt = "Analiza el siguiente relato de accidente de tránsito (puede venir " .
+                  "como texto libre o como JSON con los datos del caso) y genera la " .
+                  "simulación forense en JSON estricto, respetando EXACTAMENTE el " .
+                  "sistema de coordenadas, la geometría de la vía, las dimensiones y " .
+                  "las reglas de contacto indicadas." .
+                  ($modoAuto ? " Reconstruye además el lugar del siniestro en el campo \"escenario\"." : "") .
                   "\n\nRELATO:\n" . trim($relato);
 
     $payloadRequest = [
@@ -128,7 +130,7 @@ function generateSimulationPollinations(
         'temperature' => 0.1,
         'top_p' => 0.9,
         // El escenario (vías, zonas, elementos) alarga bastante la respuesta.
-        'max_tokens' => $modoAuto ? 4096 : 2048,
+        'max_tokens' => $modoAuto ? 8000 : 6000,
     ];
 
     try {
